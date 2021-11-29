@@ -3,15 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"os"
 	"strings"
 
 	"github.com/cybozu-go/well"
 )
 
 func main() {
-	ctx := context.Background()
-	cpu, err := DetectCPUNumber(ctx)
+	cpu, err := DetectCPUNumber()
 	if err != nil {
 		panic(err)
 	}
@@ -21,7 +20,7 @@ func main() {
 		fmt.Println("OK")
 	}
 
-	memory, err := DetectMemoryNumber(ctx)
+	memory, err := DetectMemoryNumber(context.Background())
 	if err != nil {
 		panic(err)
 	}
@@ -29,20 +28,40 @@ func main() {
 	fmt.Print(memory)
 }
 
-func DetectCPUNumber(ctx context.Context) (int, error) {
-	checkCmd := well.CommandContext(ctx, "sh", "-c", "cat /proc/cpuinfo | grep physical.id | sort -u | wc -l")
-	out, err := checkCmd.Output()
+func DetectCPUNumber() (int, error) {
+	data, err := os.ReadFile("/proc/cpuinfo")
 	if err != nil {
 		return -1, err
 	}
-	return strconv.Atoi(strings.TrimSpace(string(out)))
+	info := strings.Split(string(data), "\n")
+	count := map[string]struct{}{}
+	for _, s := range info {
+		if !strings.Contains(s, "physical id") {
+			continue
+		}
+		if _, ok := count[s]; !ok {
+			count[s] = struct{}{}
+		}
+	}
+	return len(count), nil
 }
 
 func DetectMemoryNumber(ctx context.Context) (int, error) {
-	checkCmd := well.CommandContext(ctx, "sh", "-c", "dmidecode -t memory | grep '^\\s*Size:' | grep -v \"Size: No Module Installed\" | wc -l")
+	checkCmd := well.CommandContext(ctx, "dmidecode", "-t", "memory")
 	out, err := checkCmd.Output()
 	if err != nil {
 		return -1, err
 	}
-	return strconv.Atoi(strings.TrimSpace(string(out)))
+	info := strings.Split(string(out), "\n")
+	count := 0
+	for _, s := range info {
+		if strings.Contains(s, "Size: No Module Installed") {
+			continue
+		}
+		ss := strings.TrimSpace(s)
+		if strings.HasPrefix(ss, "Size:") {
+			count++
+		}
+	}
+	return count, nil
 }
