@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -10,7 +11,7 @@ import (
 )
 
 func main() {
-	cpu, err := DetectCPUNumber()
+	cpu, err := CountCPUs()
 	if err != nil {
 		panic(err)
 	}
@@ -64,4 +65,23 @@ func DetectMemoryNumber(ctx context.Context) (int, error) {
 		}
 	}
 	return count, nil
+}
+
+func CountCPUs() (int, error) {
+	f, err := os.Open("/proc/cpuinfo")
+	if err != nil {
+		return -1, err
+	}
+	s := bufio.NewScanner(f)
+	count := map[string]struct{}{}
+	for s.Scan() {
+		l := s.Text()
+		if strings.Contains(l, "physical id") {
+			count[l] = struct{}{}
+		}
+	}
+	if err := s.Err(); err != nil {
+		return -1, err
+	}
+	return len(count), nil
 }
