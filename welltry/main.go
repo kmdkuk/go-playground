@@ -34,7 +34,7 @@ func main() {
 			case <-ctx.Done():
 				fmt.Println("done")
 				return nil
-			case <-time.After(100 * time.Second):
+			case <-time.After(20 * time.Second):
 				return fmt.Errorf("time over")
 			}
 		}
